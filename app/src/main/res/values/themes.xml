@@ -1,0 +1,6 @@
+<resources>
+    <!-- The window theme only. All real styling is in Compose (ui/theme/Theme.kt). -->
+    <style name="Theme.QuickCart" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/background</item>
+    </style>
+</resources>
