@@ -120,8 +120,20 @@ fun VoiceAgentScreen(
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = state.language == AgentLanguage.ENGLISH, onClick = { viewModel.onLanguageChange(AgentLanguage.ENGLISH) }, label = { Text("English / Hinglish") })
-                FilterChip(selected = state.language == AgentLanguage.HINDI, onClick = { viewModel.onLanguageChange(AgentLanguage.HINDI) }, label = { Text("हिंदी") })
+                FilterChip(
+                    selected = state.mode == AgentMode.GEMINI,
+                    onClick = { viewModel.onModeChange(AgentMode.GEMINI) },
+                    enabled = state.geminiAvailable,
+                    label = { Text("✨ Gemini AI") },
+                )
+                FilterChip(selected = state.mode == AgentMode.OFFLINE, onClick = { viewModel.onModeChange(AgentMode.OFFLINE) }, label = { Text("Offline") })
+                if (state.mode == AgentMode.OFFLINE) {
+                    FilterChip(selected = state.language == AgentLanguage.ENGLISH, onClick = { viewModel.onLanguageChange(AgentLanguage.ENGLISH) }, label = { Text("EN") })
+                    FilterChip(selected = state.language == AgentLanguage.HINDI, onClick = { viewModel.onLanguageChange(AgentLanguage.HINDI) }, label = { Text("हिंदी") })
+                }
+            }
+            state.notice?.let {
+                Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             }
 
             LazyColumn(
@@ -148,6 +160,9 @@ fun VoiceAgentScreen(
 }
 
 private fun statusText(state: VoiceAgentUiState): String = when {
+    state.mode == AgentMode.GEMINI && state.phase == AgentPhase.CONNECTING -> "Connecting to Gemini…"
+    state.mode == AgentMode.GEMINI && state.phase == AgentPhase.LIVE -> "✨ Live: just talk naturally, interrupt anytime"
+    state.mode == AgentMode.GEMINI -> "Tap to reconnect"
     !state.recognitionAvailable -> "Voice input isn't available on this device. Type below."
     !state.micAllowed -> "Microphone is off. Type below, or allow it in Settings."
     else -> when (state.phase) {
@@ -155,6 +170,7 @@ private fun statusText(state: VoiceAgentUiState): String = when {
         AgentPhase.LISTENING -> "Listening… say \"ek kilo doodh\""
         AgentPhase.THINKING -> "Got it…"
         AgentPhase.IDLE -> "Tap the mic to talk"
+        AgentPhase.CONNECTING, AgentPhase.LIVE -> "Connecting…"
     }
 }
 
@@ -164,7 +180,7 @@ private fun AgentOrb(phase: AgentPhase, onTap: () -> Unit) {
     val transition = rememberInfiniteTransition(label = "orb")
     val pulse by transition.animateFloat(
         initialValue = 1f,
-        targetValue = if (phase == AgentPhase.LISTENING) 1.35f else if (phase == AgentPhase.SPEAKING) 1.15f else 1f,
+        targetValue = if (phase == AgentPhase.LISTENING || phase == AgentPhase.LIVE) 1.35f else if (phase == AgentPhase.SPEAKING) 1.15f else 1f,
         animationSpec = infiniteRepeatable(tween(if (phase == AgentPhase.LISTENING) 700 else 1_000), RepeatMode.Reverse),
         label = "pulse",
     )
@@ -180,7 +196,8 @@ private fun AgentOrb(phase: AgentPhase, onTap: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) {
             when (phase) {
-                AgentPhase.THINKING -> CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(36.dp))
+                AgentPhase.LIVE -> Text("✨", fontSize = 38.sp)
+                AgentPhase.THINKING, AgentPhase.CONNECTING -> CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(36.dp))
                 AgentPhase.SPEAKING -> Text("🔊", fontSize = 38.sp)
                 else -> Text("🎤", fontSize = 38.sp)
             }

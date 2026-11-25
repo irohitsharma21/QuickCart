@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -7,7 +9,14 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
-import java.util.Properties
+// Gemini Live ("AI mode") key: read from local.properties, which is git-ignored, so it's never committed.
+// No key -> AI mode is disabled and the on-device agent is used.
+val localProps = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+// -Pquickcart.publicBuild=true builds WITHOUT the key (for public downloads: a key in an APK can be extracted).
+val publicBuild = (project.findProperty("quickcart.publicBuild") as String?).toBoolean()
+val geminiApiKey: String = if (publicBuild) "" else localProps.getProperty("GEMINI_API_KEY", "")
 
 val useRealBackend = (project.findProperty("quickcart.realBackend") as String?).toBoolean()
 
@@ -30,6 +39,7 @@ android {
         buildConfigField("boolean", "USE_FAKE_BACKEND", (!useRealBackend).toString())
         buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/\"")
         buildConfigField("String", "WS_BASE_URL", "\"ws://10.0.2.2:8000/\"")
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
     }
 
     signingConfigs {

@@ -13,6 +13,11 @@ WorkManager and WebSockets**. It focuses on three things: the app keeps working 
 **Download:** see the latest APK under [Releases](https://github.com/irohitsharma21/QuickCart/releases). It runs on any Android 8+ phone with no server needed.
 
 ## Features
+- **✨ Gemini AI mode**: the voice agent can run on **Gemini Live** (`gemini-3.1-flash-live-preview`) over a WebSocket
+  straight from the phone, with no backend. Mic → 16 kHz PCM → Gemini → 24 kHz voice back, barge-in, live transcripts.
+  The cart changes only through **validated function calls** (`add_to_cart`, `remove_from_cart`, `get_cart`, `place_order`).
+  It falls back to the on-device agent when offline. Needs `GEMINI_API_KEY` in `local.properties`. Public APKs are built
+  without it (`-Pquickcart.publicBuild=true`).
 - **🗣️ Voice ordering agent ("Talk to QuickCart")**: a spoken conversation. *"ek kilo doodh"* → *"Added 2 Toned Milk,
   500 ml each. Anything else?"* It handles add / remove / "kitna hua?", and *"that's it"* / *"order all four"* → it confirms total, payment and address,
   then **places the order** on "yes" (it understands many forms of yes/no, and "no" always wins). Did-you-mean confirmations;
