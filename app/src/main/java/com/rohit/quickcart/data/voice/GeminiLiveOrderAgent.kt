@@ -92,6 +92,15 @@ class GeminiLiveOrderAgent @Inject constructor(
     private var player: AudioTrack? = null
     private var playback = Channel<ByteArray>(Channel.UNLIMITED)
 
+    /**
+     * Half-duplex gate against ECHO. On a phone speaker, the mic hears Gemini's own voice; Gemini's
+     * voice-activity detection then thinks the user is talking and interrupts itself after one word.
+     * So while Gemini's audio is playing (plus a short tail for room echo), we don't send mic audio.
+     * The user interrupts by tapping the orb instead ([interrupt]).
+     */
+    @Volatile private var speakingUntilMs = 0L
+    private val isSpeaking: Boolean get() = System.currentTimeMillis() < speakingUntilMs + ECHO_TAIL_MS
+
     /** Connects, sends the setup (model, instructions, tools), waits for setupComplete, then streams the mic. */
     suspend fun start(products: List<Product>, onEvent: (Event) -> Unit) {
         check(isConfigured) { "No GEMINI_API_KEY in local.properties" }
@@ -185,6 +194,7 @@ class GeminiLiveOrderAgent @Inject constructor(
         while (isActive) {
             val read = rec.read(buffer, 0, buffer.size)
             if (read <= 0) continue
+            if (isSpeaking) continue // gate: don't let Gemini hear its own voice
             val frame = buildJsonObject {
                 putJsonObject("realtimeInput") {
                     putJsonObject("audio") {
@@ -213,15 +223,30 @@ class GeminiLiveOrderAgent @Inject constructor(
         track.play()
         for (chunk in playback) {
             if (!isActive) break
+            // Extend the "Gemini is speaking" window by this chunk's duration (24 kHz, 16-bit mono = 48 bytes per ms).
+            val now = System.currentTimeMillis()
+            speakingUntilMs = maxOf(speakingUntilMs, now) + chunk.size / BYTES_PER_MS_OUT
             track.write(chunk, 0, chunk.size) // blocks while the buffer is full: natural pacing
         }
     }
 
-    /** The user started talking over Gemini (barge-in): drop queued audio so it goes quiet at once. */
+    /** Gemini was interrupted: drop queued audio so it goes quiet at once, and reopen the mic. */
     private fun interruptPlayback() {
         while (playback.tryReceive().isSuccess) Unit
         player?.let { runCatching { it.pause(); it.flush(); it.play() } }
+        speakingUntilMs = 0
     }
+
+    /**
+     * Tap-to-interrupt: stop Gemini's voice now and listen. Remaining audio for the current reply is
+     * dropped until Gemini's next turn starts (the user's speech ends the old turn on the server).
+     */
+    fun interrupt() {
+        dropUntilNextTurn = true
+        interruptPlayback()
+    }
+
+    @Volatile private var dropUntilNextTurn = false
 
     // ---- protocol ----
 
@@ -232,14 +257,20 @@ class GeminiLiveOrderAgent @Inject constructor(
             return
         }
         msg["serverContent"]?.jsonObject?.let { content ->
-            if (content["interrupted"]?.jsonPrimitive?.booleanOrNull == true) interruptPlayback()
+            if (content["interrupted"]?.jsonPrimitive?.booleanOrNull == true) {
+                interruptPlayback()
+                dropUntilNextTurn = false // the old reply is over; play the next one
+            }
+            if (content["turnComplete"]?.jsonPrimitive?.booleanOrNull == true) dropUntilNextTurn = false
             content["inputTranscription"]?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
                 ?.takeIf { it.isNotBlank() }?.let { onEvent(Event.Transcript(fromUser = true, text = it)) }
             content["outputTranscription"]?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
                 ?.takeIf { it.isNotBlank() }?.let { onEvent(Event.Transcript(fromUser = false, text = it)) }
-            content["modelTurn"]?.jsonObject?.get("parts")?.jsonArray?.forEach { part ->
-                part.jsonObject["inlineData"]?.jsonObject?.get("data")?.jsonPrimitive?.contentOrNull
-                    ?.let { playback.trySend(Base64.decode(it, Base64.DEFAULT)) }
+            if (!dropUntilNextTurn) {
+                content["modelTurn"]?.jsonObject?.get("parts")?.jsonArray?.forEach { part ->
+                    part.jsonObject["inlineData"]?.jsonObject?.get("data")?.jsonPrimitive?.contentOrNull
+                        ?.let { playback.trySend(Base64.decode(it, Base64.DEFAULT)) }
+                }
             }
         }
         msg["toolCall"]?.jsonObject?.get("functionCalls")?.jsonArray?.let { calls ->
@@ -347,6 +378,8 @@ class GeminiLiveOrderAgent @Inject constructor(
         private const val IN_RATE = 16_000
         private const val OUT_RATE = 24_000
         private const val CHUNK_BYTES = IN_RATE * 2 / 25 // 40 ms of 16-bit mono audio
+        private const val BYTES_PER_MS_OUT = OUT_RATE * 2 / 1000 // 48
+        private const val ECHO_TAIL_MS = 350L // room echo after the last word
 
         fun setupMessage(products: List<Product>): JsonObject = buildJsonObject {
             putJsonObject("setup") {

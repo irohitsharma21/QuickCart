@@ -161,7 +161,7 @@ fun VoiceAgentScreen(
 
 private fun statusText(state: VoiceAgentUiState): String = when {
     state.mode == AgentMode.GEMINI && state.phase == AgentPhase.CONNECTING -> "Connecting to Gemini…"
-    state.mode == AgentMode.GEMINI && state.phase == AgentPhase.LIVE -> "✨ Live: just talk naturally, interrupt anytime"
+    state.mode == AgentMode.GEMINI && state.phase == AgentPhase.LIVE -> "✨ Live: talk naturally · tap ✨ to interrupt"
     state.mode == AgentMode.GEMINI -> "Tap to reconnect"
     !state.recognitionAvailable -> "Voice input isn't available on this device. Type below."
     !state.micAllowed -> "Microphone is off. Type below, or allow it in Settings."

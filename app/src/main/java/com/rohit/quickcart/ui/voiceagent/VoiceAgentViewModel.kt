@@ -202,9 +202,10 @@ class VoiceAgentViewModel @Inject constructor(
     /** Mic button: start listening, interrupt the agent, or stop listening. */
     fun onMicTap() {
         if (state.value.mode == AgentMode.GEMINI) {
-            // In AI mode the conversation is always live; tapping reconnects if it dropped.
-            if (state.value.phase != AgentPhase.LIVE && state.value.phase != AgentPhase.CONNECTING) {
-                viewModelScope.launch { startGemini() }
+            when (state.value.phase) {
+                AgentPhase.LIVE -> gemini.interrupt() // stop Gemini talking, listen to the user
+                AgentPhase.CONNECTING -> Unit
+                else -> viewModelScope.launch { startGemini() } // reconnect if it dropped
             }
             return
         }
