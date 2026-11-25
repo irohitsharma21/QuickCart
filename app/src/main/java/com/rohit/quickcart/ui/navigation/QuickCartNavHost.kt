@@ -18,6 +18,7 @@ import com.rohit.quickcart.ui.orders.OrdersScreen
 import com.rohit.quickcart.ui.search.SearchScreen
 import com.rohit.quickcart.ui.smartlist.SmartListScreen
 import com.rohit.quickcart.ui.tracking.TrackingScreen
+import com.rohit.quickcart.ui.voiceagent.VoiceAgentScreen
 import kotlinx.serialization.Serializable
 
 /*
@@ -28,6 +29,7 @@ import kotlinx.serialization.Serializable
 @Serializable data object SearchRoute
 @Serializable data class CategoryRoute(val categoryId: String)
 @Serializable data object SmartListRoute
+@Serializable data object VoiceAgentRoute
 @Serializable data object CartRoute
 @Serializable data object CheckoutRoute
 @Serializable data object OrdersRoute
@@ -51,7 +53,7 @@ fun QuickCartNavHost() {
                     openOrders = { navController.navigate(OrdersRoute) },
                     openSearch = { navController.navigate(SearchRoute) },
                     openCategory = { navController.navigate(CategoryRoute(it)) },
-                    openVoiceOrder = { navController.navigate(SmartListRoute) },
+                    openVoiceOrder = { navController.navigate(VoiceAgentRoute) },
                 ),
             )
         }
@@ -65,6 +67,14 @@ fun QuickCartNavHost() {
                 onBack = { navController.popBackStack() },
                 onOpenSearch = { navController.navigate(SearchRoute) },
                 onOpenCart = { navController.navigate(CartRoute) },
+            )
+        }
+
+        composable<VoiceAgentRoute> {
+            VoiceAgentScreen(
+                onBack = { navController.popBackStack() },
+                onOpenCart = { navController.navigate(CartRoute) { popUpTo(HomeRoute) } },
+                onPasteList = { navController.navigate(SmartListRoute) },
             )
         }
 

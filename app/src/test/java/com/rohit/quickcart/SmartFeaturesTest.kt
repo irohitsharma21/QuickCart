@@ -80,6 +80,11 @@ class SmartFeaturesTest {
     }
 
     @Test
+    fun `kilo of a liquid is read as litres`() {
+        assertEquals(listOf("milk" to 2), parse("1 kilo doodh"))   // 500 ml packs
+    }
+
+    @Test
     fun `edit distance`() {
         assertEquals(3, GroceryListParser.levenshtein("kitten", "sitting"))
         assertEquals(0, GroceryListParser.levenshtein("doodh", "doodh"))

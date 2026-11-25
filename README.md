@@ -5,13 +5,18 @@ WorkManager and WebSockets**. It focuses on three things: the app keeps working 
 (**offline-first**), **live order tracking**, and **voice ordering in Hinglish and Hindi**.
 
 <p>
-  <img src="docs/voice.png" width="28%" />
-  <img src="docs/home-landscape.png" width="68%" />
+  <img src="docs/voice-agent.png" width="30%" />
+  <img src="docs/voice.png" width="30%" />
 </p>
+<img src="docs/home-landscape.png" width="62%" />
 
 **Download:** see the latest APK under [Releases](https://github.com/irohitsharma21/QuickCart/releases). It runs on any Android 8+ phone with no server needed.
 
 ## Features
+- **🗣️ Voice ordering agent ("Talk to QuickCart")**: a spoken conversation. *"ek kilo doodh"* → *"Added 2 Toned Milk,
+  500 ml each. Anything else?"* It handles add / remove / "kitna hua?" / "bas" (checkout), did-you-mean confirmations,
+  and English, Hinglish and Hindi. Android `SpeechRecognizer` + `TextToSpeech` with half-duplex turn-taking around a pure-Kotlin,
+  unit-tested dialogue "brain" (`VoiceOrderAgent`). No backend needed.
 - **🎤 Voice / list ordering**: say or paste *"do doodh, ek bread aur aadha kilo pyaaz"* or *"दो दूध और एक दर्जन अंडे"*.
   The system speech recognizer (en-IN / hi-IN) feeds an **on-device Hinglish/Hindi parser** (number words, units → packs,
   aliases, Levenshtein fuzzy matching, confidence thresholds). You get a review list, then one tap adds it all to the cart.
@@ -69,7 +74,7 @@ cd server && uv run --no-project --with fastapi --with "uvicorn[standard]" uvico
 Requires JDK 17 and the Android SDK (or just open the project in Android Studio).
 ```bash
 ./gradlew assembleDebug          # APK in app/build/outputs/apk/debug/
-./gradlew testDebugUnitTest      # 40 unit tests (parser, predictor, migration, Room, MockWebServer, ViewModels)
+./gradlew testDebugUnitTest      # 54 unit tests (voice agent, parser, predictor, migration, Room, MockWebServer, ViewModels)
 cd server && uv run --no-project --with fastapi --with httpx --with pytest pytest -q   # 4 server tests
 ```
 

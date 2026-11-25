@@ -152,7 +152,9 @@ class GroceryListParser(
         val pack = PACK_SIZE.find(product.unit.lowercase()) ?: return null
         if (product.unit.contains("x")) return null // multipacks like "4 x 70 g"
         val (packKind, factor) = UNITS[pack.groupValues[2]] ?: return null
-        if (packKind != kind) return null
+        // People say "1 kilo doodh" and mean a litre: treat weight and volume as the same for groceries (≈ water).
+        val liquidOrSolid = setOf(UnitKind.WEIGHT, UnitKind.VOLUME)
+        if (packKind != kind && !(packKind in liquidOrSolid && kind in liquidOrSolid)) return null
         val packAmount = pack.groupValues[1].toDouble() * factor
         return ceil(amount / packAmount).toInt().coerceIn(1, MAX_QTY)
     }

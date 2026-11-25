@@ -282,9 +282,9 @@ private fun VoiceOrderCard(onClick: () -> Unit) {
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Just say it, or paste your list", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                Text("Talk to QuickCart", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
                 Text(
-                    "\"Do doodh, ek bread aur aadha kilo pyaaz\"",
+                    "Just say \"ek kilo doodh aur do bread\". It answers back, in Hindi too",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )

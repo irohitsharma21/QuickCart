@@ -25,6 +25,8 @@ import com.rohit.quickcart.data.repository.RoomCartRepository
 import com.rohit.quickcart.data.repository.RoomSearchRepository
 import com.rohit.quickcart.data.repository.SearchRepository
 import com.rohit.quickcart.data.sync.OrderSyncScheduler
+import com.rohit.quickcart.data.voice.AndroidSpeechIo
+import com.rohit.quickcart.data.voice.SpeechIo
 import com.rohit.quickcart.data.sync.WorkManagerOrderSyncScheduler
 import dagger.Binds
 import dagger.Module
@@ -161,6 +163,10 @@ abstract class BindingsModule {
 
     @Binds
     abstract fun bindOrderRepository(impl: DefaultOrderRepository): OrderRepository
+
+    /** Not @Singleton: each voice-agent screen gets its own mic/TTS instance and releases it. */
+    @Binds
+    abstract fun bindSpeechIo(impl: AndroidSpeechIo): SpeechIo
 
     @Binds
     abstract fun bindSyncScheduler(impl: WorkManagerOrderSyncScheduler): OrderSyncScheduler
