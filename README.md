@@ -14,8 +14,9 @@ WorkManager and WebSockets**. It focuses on three things: the app keeps working 
 
 ## Features
 - **🗣️ Voice ordering agent ("Talk to QuickCart")**: a spoken conversation. *"ek kilo doodh"* → *"Added 2 Toned Milk,
-  500 ml each. Anything else?"* It handles add / remove / "kitna hua?" / "bas" (checkout), did-you-mean confirmations,
-  and English, Hinglish and Hindi. Android `SpeechRecognizer` + `TextToSpeech` with half-duplex turn-taking around a pure-Kotlin,
+  500 ml each. Anything else?"* It handles add / remove / "kitna hua?", and *"that's it"* / *"order all four"* → it confirms total, payment and address,
+  then **places the order** on "yes" (it understands many forms of yes/no, and "no" always wins). Did-you-mean confirmations;
+  English, Hinglish and Hindi. Android `SpeechRecognizer` + `TextToSpeech` with half-duplex turn-taking around a pure-Kotlin,
   unit-tested dialogue "brain" (`VoiceOrderAgent`). No backend needed.
 - **🎤 Voice / list ordering**: say or paste *"do doodh, ek bread aur aadha kilo pyaaz"* or *"दो दूध और एक दर्जन अंडे"*.
   The system speech recognizer (en-IN / hi-IN) feeds an **on-device Hinglish/Hindi parser** (number words, units → packs,
@@ -74,7 +75,7 @@ cd server && uv run --no-project --with fastapi --with "uvicorn[standard]" uvico
 Requires JDK 17 and the Android SDK (or just open the project in Android Studio).
 ```bash
 ./gradlew assembleDebug          # APK in app/build/outputs/apk/debug/
-./gradlew testDebugUnitTest      # 54 unit tests (voice agent, parser, predictor, migration, Room, MockWebServer, ViewModels)
+./gradlew testDebugUnitTest      # 64 unit tests (voice agent, parser, predictor, migration, Room, MockWebServer, ViewModels)
 cd server && uv run --no-project --with fastapi --with httpx --with pytest pytest -q   # 4 server tests
 ```
 

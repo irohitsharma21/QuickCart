@@ -140,11 +140,21 @@ class GroceryListParser(
         // "brown bread" contains "bread"; "cold coffee" contains "coffee"
         if (term.length >= 3 && (inputWords.containsAll(termWords) || termWords.containsAll(inputWords))) return 0.92f
         var best = 0f
-        for (a in inputWords) for (b in termWords) {
-            if (a.length < 3 || b.length < 3) continue
-            best = max(best, similarity(a, b) * 0.95f)
+        val meaningful = inputWords.filter { it.length >= 3 }
+        var covered = 0
+        for (a in meaningful) {
+            var bestForWord = 0f
+            for (b in termWords) {
+                if (b.length < 3) continue
+                bestForWord = max(bestForWord, similarity(a, b) * 0.95f)
+            }
+            if (bestForWord >= 0.7f) covered++
+            best = max(best, bestForWord)
         }
-        return best
+        // Coverage penalty: one fuzzy word out of four ("hmm WHAT can you" ~ "wheat") is weak evidence.
+        // A single typo'd word ("tomoto") keeps its full score.
+        val coverage = if (meaningful.isEmpty()) 0f else covered.toFloat() / meaningful.size
+        return best * (0.7f + 0.3f * coverage)
     }
 
     /** 2 kg of onions in a "1 kg" pack -> 2. Half a kilo -> still 1 pack. */
@@ -225,6 +235,9 @@ class GroceryListParser(
         private val FILLER_WORDS = setOf(
             "wala", "wali", "wale", "ka", "ki", "ke", "chahiye", "chaiye", "please", "pls", "bhi", "mujhe", "hume", "humko",
             "some", "of", "get", "buy", "need", "want", "i", "the", "also", "add", "order", "lao", "lana", "dena",
+            // common English words in spoken requests that must never fuzzy-match a product ("what" ~ "wheat")
+            "what", "can", "you", "would", "like", "give", "have", "show", "me", "my", "is", "are", "a", "for", "and",
+            "with", "it", "this", "that", "to", "hmm", "umm", "uh", "please", "kya", "hai", "aur", "bhi", "toh",
             "चाहिए", "भी", "मुझे", "का", "की", "के", "वाला", "वाली",
         )
 

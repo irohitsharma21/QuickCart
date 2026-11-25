@@ -74,6 +74,8 @@ import com.rohit.quickcart.ui.components.CartBar
 fun VoiceAgentScreen(
     onBack: () -> Unit,
     onOpenCart: () -> Unit,
+    onOpenCheckout: () -> Unit,
+    onOrderPlaced: (localOrderId: String) -> Unit,
     onPasteList: () -> Unit,
     viewModel: VoiceAgentViewModel = hiltViewModel(),
 ) {
@@ -88,7 +90,15 @@ fun VoiceAgentScreen(
         val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         if (granted) viewModel.start(micAllowed = true) else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
     }
-    LaunchedEffect(Unit) { viewModel.goToCart.collect { onOpenCart() } }
+    LaunchedEffect(Unit) {
+        viewModel.navigation.collect { destination ->
+            when (destination) {
+                AgentNavigation.Cart -> onOpenCart()
+                AgentNavigation.Checkout -> onOpenCheckout()
+                is AgentNavigation.Tracking -> onOrderPlaced(destination.localOrderId)
+            }
+        }
+    }
 
     val listState = rememberLazyListState()
     LaunchedEffect(state.messages.size) { if (state.messages.isNotEmpty()) listState.animateScrollToItem(state.messages.size - 1) }

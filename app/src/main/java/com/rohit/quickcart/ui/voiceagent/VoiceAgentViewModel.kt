@@ -4,13 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rohit.quickcart.data.repository.CartRepository
 import com.rohit.quickcart.data.repository.CatalogRepository
+import com.rohit.quickcart.data.repository.OrderRepository
 import com.rohit.quickcart.data.voice.SpeechEvent
 import com.rohit.quickcart.data.voice.SpeechIo
 import com.rohit.quickcart.domain.CartLine
 import com.rohit.quickcart.domain.Product
 import com.rohit.quickcart.domain.voiceagent.AgentLanguage
+import com.rohit.quickcart.domain.voiceagent.AgentNext
 import com.rohit.quickcart.domain.voiceagent.CartAction
-import com.rohit.quickcart.domain.voiceagent.PendingConfirmation
+import com.rohit.quickcart.domain.voiceagent.Pending
 import com.rohit.quickcart.domain.voiceagent.VoiceOrderAgent
 import com.rohit.quickcart.ui.home.CartSummary
 import com.rohit.quickcart.ui.home.toCartSummary
@@ -32,6 +34,13 @@ import javax.inject.Inject
 enum class AgentPhase { IDLE, SPEAKING, LISTENING, THINKING }
 
 data class ChatMessage(val fromUser: Boolean, val text: String)
+
+/** Where to go after the agent's last sentence. */
+sealed interface AgentNavigation {
+    data object Cart : AgentNavigation
+    data object Checkout : AgentNavigation
+    data class Tracking(val localOrderId: String) : AgentNavigation
+}
 
 data class VoiceAgentUiState(
     val phase: AgentPhase = AgentPhase.IDLE,
@@ -56,6 +65,7 @@ data class VoiceAgentUiState(
 class VoiceAgentViewModel @Inject constructor(
     catalogRepository: CatalogRepository,
     private val cartRepository: CartRepository,
+    private val orderRepository: OrderRepository,
     private val speech: SpeechIo,
 ) : ViewModel() {
 
@@ -63,16 +73,19 @@ class VoiceAgentViewModel @Inject constructor(
         catalogRepository.observeProducts(null, "").stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     private val cartLines: StateFlow<List<CartLine>> =
         cartRepository.observeCart().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    private val lastAddress: StateFlow<String?> =
+        orderRepository.observeLastAddress().stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val state = MutableStateFlow(VoiceAgentUiState(recognitionAvailable = speech.isRecognitionAvailable))
     val uiState: StateFlow<VoiceAgentUiState> = combine(state, cartLines) { s, cart -> s.copy(cart = cart.toCartSummary()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), state.value)
 
-    private val _goToCart = Channel<Unit>(Channel.BUFFERED)
-    val goToCart: Flow<Unit> = _goToCart.receiveAsFlow()
+    private val _navigation = Channel<AgentNavigation>(Channel.BUFFERED)
+    val navigation: Flow<AgentNavigation> = _navigation.receiveAsFlow()
 
-    private var pending: PendingConfirmation? = null
-    private var finishAfterSpeaking = false
+    private var pending: Pending? = null
+    /** Set when the agent's current sentence is its last one: navigate once it finishes speaking. */
+    private var navigateAfterSpeaking: AgentNavigation? = null
     private var missesInARow = 0
     private var started = false
 
@@ -137,10 +150,11 @@ class VoiceAgentViewModel @Inject constructor(
                 }
             }
             SpeechEvent.SpeakingDone -> {
-                if (finishAfterSpeaking) {
-                    finishAfterSpeaking = false
+                val destination = navigateAfterSpeaking
+                if (destination != null) {
+                    navigateAfterSpeaking = null
                     state.update { it.copy(phase = AgentPhase.IDLE) }
-                    _goToCart.trySend(Unit)
+                    _navigation.trySend(destination)
                 } else if (state.value.phase == AgentPhase.SPEAKING) {
                     listen() // agent finished talking -> user's turn
                 }
@@ -152,7 +166,7 @@ class VoiceAgentViewModel @Inject constructor(
         missesInARow = 0
         state.update { it.copy(phase = AgentPhase.THINKING, partial = "", messages = it.messages + ChatMessage(true, text)) }
         viewModelScope.launch {
-            val turn = agent().handle(text, cartLines.value, pending)
+            val turn = agent().handle(text, cartLines.value, pending, lastAddress.value)
             turn.actions.forEach { action ->
                 when (action) {
                     is CartAction.Add -> cartRepository.add(action.productId, action.quantity)
@@ -160,7 +174,22 @@ class VoiceAgentViewModel @Inject constructor(
                 }
             }
             pending = turn.pending
-            finishAfterSpeaking = turn.done
+            navigateAfterSpeaking = when (turn.next) {
+                AgentNext.OPEN_CART -> AgentNavigation.Cart
+                AgentNext.OPEN_CHECKOUT -> AgentNavigation.Checkout
+                AgentNext.CONTINUE -> null
+            }
+            // The user said "yes" to "Shall I place the order…?": place it for real (works offline too,
+            // it's saved as PENDING_SYNC and WorkManager sends it), then open live tracking.
+            turn.placeOrder?.let { order ->
+                try {
+                    val localId = orderRepository.placeOrder(order.address, order.paymentMethod)
+                    navigateAfterSpeaking = AgentNavigation.Tracking(localId)
+                } catch (e: IllegalStateException) {
+                    say(if (state.value.language == AgentLanguage.HINDI) "कार्ट खाली है।" else "Your cart is empty, so there's nothing to order.")
+                    return@launch
+                }
+            }
             say(turn.reply)
         }
     }

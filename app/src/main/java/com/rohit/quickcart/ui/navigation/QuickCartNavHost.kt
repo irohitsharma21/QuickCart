@@ -74,6 +74,8 @@ fun QuickCartNavHost() {
             VoiceAgentScreen(
                 onBack = { navController.popBackStack() },
                 onOpenCart = { navController.navigate(CartRoute) { popUpTo(HomeRoute) } },
+                onOpenCheckout = { navController.navigate(CheckoutRoute) { popUpTo(HomeRoute) } },
+                onOrderPlaced = { localId -> navController.navigate(TrackingRoute(localId, justPlaced = true)) { popUpTo(HomeRoute) } },
                 onPasteList = { navController.navigate(SmartListRoute) },
             )
         }
